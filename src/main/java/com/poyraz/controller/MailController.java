@@ -6,10 +6,10 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RequestMapping("/mail")
 @RestController
@@ -35,6 +35,15 @@ public class MailController {
         MailDTO mailWithTemplate = new MailDTO(mailDTO.to(),
                 mailDTO.subject(), mailBody, mailDTO.templateName(), mailDTO.firstName());
         String response = mailService.sendAdvancedMail(mailWithTemplate, attachment);
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @PostMapping("/sendWithYourAttachment")
+    public ResponseEntity<String> sendWithYourAttachment(@RequestPart MailDTO mailDTO, @RequestPart List<MultipartFile> attachments) {
+        String mailBody = mailService.buildMailBodyWithTemplate(mailDTO.firstName(), mailDTO.templateName());
+        MailDTO mailWithTemplate = new MailDTO(mailDTO.to(),
+                mailDTO.subject(), mailBody, mailDTO.templateName(), mailDTO.firstName());
+        String response = mailService.sendAdvancedMail(mailWithTemplate, attachments);
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 }

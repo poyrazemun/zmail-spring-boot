@@ -12,11 +12,13 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -55,6 +57,12 @@ public class MailServiceImpl implements MailService {
         return sendMailWithAttachment(mailWithTemplateBody, attachment);
     }
 
+    //this sendAdvancedMail is for sending emails with attachment/attachments of user's wish.
+    @Override
+    public String sendAdvancedMail(MailDTO mailWithTemplate, List<MultipartFile> attachments) {
+        return sendMailWithAttachment(mailWithTemplate, attachments);
+    }
+
     private String sendEmail(MailDTO mailDTO) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
@@ -80,6 +88,28 @@ public class MailServiceImpl implements MailService {
             mimeMessageHelper.setText(mailDTO.body(), true);
             if (Objects.nonNull(attachment)) {
                 mimeMessageHelper.addAttachment(Objects.requireNonNull(attachment.getFilename()), attachment);
+            }
+            mailSender.send(message);
+            return successMessage;
+        } catch (MessagingException e) {
+            return e.getMessage();
+        }
+    }
+
+    private String sendMailWithAttachment(MailDTO mailDTO, List<MultipartFile> attachments) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper mimeMessageHelper = new MimeMessageHelper(message, true, "UTF-8");
+            mimeMessageHelper.setFrom(senderEmail);
+            mimeMessageHelper.setTo(mailDTO.to());
+            mimeMessageHelper.setSubject(mailDTO.subject());
+            mimeMessageHelper.setText(mailDTO.body(), true);
+            if (!attachments.isEmpty()) {
+                for (MultipartFile attachment : attachments) {
+                    if (Objects.nonNull(attachment)) {
+                        mimeMessageHelper.addAttachment(Objects.requireNonNull(attachment.getOriginalFilename()), attachment);
+                    }
+                }
             }
             mailSender.send(message);
             return successMessage;
