@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,7 +72,7 @@ public class MailServiceImpl implements MailService {
             message.setSubject(mailDTO.subject());
             message.setText(mailDTO.body());
             mailSender.send(message);
-            return successMessage;
+            return String.format(successMessage, LocalDateTime.now());
         } catch (Exception e) {
             return e.getMessage();
         }
@@ -90,7 +91,7 @@ public class MailServiceImpl implements MailService {
                 mimeMessageHelper.addAttachment(Objects.requireNonNull(attachment.getFilename()), attachment);
             }
             mailSender.send(message);
-            return successMessage;
+            return String.format(successMessage, LocalDateTime.now());
         } catch (MessagingException e) {
             return e.getMessage();
         }
@@ -112,7 +113,7 @@ public class MailServiceImpl implements MailService {
                 }
             }
             mailSender.send(message);
-            return successMessage;
+            return String.format(successMessage, LocalDateTime.now());
         } catch (MessagingException e) {
             return e.getMessage();
         }
