@@ -39,7 +39,7 @@ public class MailController {
     }
 
     @PostMapping("/sendWithYourAttachment")
-    public ResponseEntity<String> sendWithYourAttachment(@RequestPart MailDTO mailDTO, @RequestPart List<MultipartFile> attachments) {
+    public ResponseEntity<String> sendWithYourAttachment(@RequestPart MailDTO mailDTO, @RequestPart(required = false) List<MultipartFile> attachments) {
         String mailBody = mailService.buildMailBodyWithTemplate(mailDTO.firstName(), mailDTO.templateName());
         MailDTO mailWithTemplate = new MailDTO(mailDTO.to(),
                 mailDTO.subject(), mailBody, mailDTO.templateName(), mailDTO.firstName());
