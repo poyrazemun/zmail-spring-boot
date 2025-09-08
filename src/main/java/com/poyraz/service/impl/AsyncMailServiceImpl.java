@@ -7,6 +7,8 @@ import jakarta.activation.DataSource;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.util.ByteArrayDataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.mail.SimpleMailMessage;
@@ -22,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 
 @Service
 public class AsyncMailServiceImpl implements AsyncMailService {
+    private static final Logger logger = LoggerFactory.getLogger(AsyncMailServiceImpl.class);
     private final JavaMailSender mailSender;
 
 
@@ -38,6 +41,7 @@ public class AsyncMailServiceImpl implements AsyncMailService {
     @Async
     @Override
     public CompletableFuture<String> sendBasicMail(MailDTO mailDTO) {
+        logger.info("Async sendBasicMail started for recipient: {}", mailDTO.to());
         try {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(senderEmail);
@@ -45,8 +49,10 @@ public class AsyncMailServiceImpl implements AsyncMailService {
             message.setSubject(mailDTO.subject());
             message.setText(mailDTO.body());
             mailSender.send(message);
+            logger.info("Async sendBasicMail sent successfully to: {}", mailDTO.to());
             return CompletableFuture.completedFuture(String.format(successMessage, LocalDateTime.now()));
         } catch (Exception e) {
+            logger.error("Error in async sendBasicMail for recipient: {}", mailDTO.to(), e);
             return CompletableFuture.failedFuture(e);
         }
     }
