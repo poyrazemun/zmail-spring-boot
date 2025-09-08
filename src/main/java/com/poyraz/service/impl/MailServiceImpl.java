@@ -1,16 +1,13 @@
 package com.poyraz.service.impl;
 
+import com.poyraz.dto.AttachmentDTO;
 import com.poyraz.dto.MailDTO;
+import com.poyraz.service.AsyncMailService;
 import com.poyraz.service.MailService;
 import freemarker.template.Configuration;
 import freemarker.template.TemplateException;
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -18,34 +15,32 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 @Service
 public class MailServiceImpl implements MailService {
 
-    private final JavaMailSender mailSender;
     private final Configuration templateConfig;
+    private final AsyncMailService asyncMailService;
 
-    public MailServiceImpl(JavaMailSender mailSender, Configuration templateConfig) {
-        this.mailSender = mailSender;
+    public MailServiceImpl(Configuration templateConfig, AsyncMailService asyncMailService) {
         this.templateConfig = templateConfig;
+        this.asyncMailService = asyncMailService;
     }
 
-    @Value("${spring.mail.username}")
-    private String senderEmail;
-
-    @Value("${success.message}")
-    private String successMessage;
+    @Value("${initiated.message}")
+    private String initiatedMessage;
 
     @Override
     public String sendBasicMail(MailDTO mailDTO) {
-        return sendEmail(mailDTO);
+        asyncMailService.sendBasicMail(mailDTO).thenAccept(System.out::println).exceptionally(e -> {
+            e.printStackTrace();
+            return null;
+        });
+        return String.format(initiatedMessage, LocalDateTime.now());
     }
 
-    @Override
+
     public String sendAdvancedMail(MailDTO mailDTO, Resource attachment) {
         String mailBody = buildMailBodyWithTemplate(mailDTO.firstName(), mailDTO.templateName());
         MailDTO mailWithTemplateBody = new MailDTO(
@@ -55,68 +50,38 @@ public class MailServiceImpl implements MailService {
                 mailDTO.templateName(),
                 mailDTO.firstName()
         );
-        return sendMailWithAttachment(mailWithTemplateBody, attachment);
+        asyncMailService.sendMailWithAttachment(mailWithTemplateBody, attachment).thenAccept(System.out::println)
+                .exceptionally(e -> {
+                    e.printStackTrace();
+                    return null;
+                });
+        return String.format(initiatedMessage, LocalDateTime.now());
     }
 
     //this sendAdvancedMail is for sending emails with attachment/attachments of user's wish.
-    @Override
     public String sendAdvancedMail(MailDTO mailWithTemplate, List<MultipartFile> attachments) {
-        return sendMailWithAttachment(mailWithTemplate, attachments);
+        List<AttachmentDTO> attachmentDataList = convertAttachments(attachments);
+        asyncMailService.sendMailWithAttachment(mailWithTemplate, attachmentDataList).thenAccept(System.out::println)
+                .exceptionally(e -> {
+                    e.printStackTrace();
+                    return null;
+                });
+
+        return String.format(initiatedMessage, LocalDateTime.now());
     }
 
-    private String sendEmail(MailDTO mailDTO) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(senderEmail);
-            message.setTo(mailDTO.to());
-            message.setSubject(mailDTO.subject());
-            message.setText(mailDTO.body());
-            mailSender.send(message);
-            return String.format(successMessage, LocalDateTime.now());
-        } catch (Exception e) {
-            return e.getMessage();
+    private List<AttachmentDTO> convertAttachments(List<MultipartFile> attachments) {
+        if (Objects.isNull(attachments)) {
+            return new ArrayList<>();
         }
-    }
-
-    private String sendMailWithAttachment(MailDTO mailDTO, Resource attachment) {
-
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper mimeMessageHelper = new MimeMessageHelper(message, true, "UTF-8");
-            mimeMessageHelper.setFrom(senderEmail);
-            mimeMessageHelper.setTo(mailDTO.to());
-            mimeMessageHelper.setSubject(mailDTO.subject());
-            mimeMessageHelper.setText(mailDTO.body(), true);
-            if (Objects.nonNull(attachment)) {
-                mimeMessageHelper.addAttachment(Objects.requireNonNull(attachment.getFilename()), attachment);
+        return attachments.stream().map(file -> {
+            try {
+                return new AttachmentDTO(file.getOriginalFilename(), file.getContentType(), file.getBytes());
+            } catch (IOException e) {
+                e.printStackTrace();
+                return null;
             }
-            mailSender.send(message);
-            return String.format(successMessage, LocalDateTime.now());
-        } catch (MessagingException e) {
-            return e.getMessage();
-        }
-    }
-
-    private String sendMailWithAttachment(MailDTO mailDTO, List<MultipartFile> attachments) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper mimeMessageHelper = new MimeMessageHelper(message, true, "UTF-8");
-            mimeMessageHelper.setFrom(senderEmail);
-            mimeMessageHelper.setTo(mailDTO.to());
-            mimeMessageHelper.setSubject(mailDTO.subject());
-            mimeMessageHelper.setText(mailDTO.body(), true);
-            if (!attachments.isEmpty()) {
-                for (MultipartFile attachment : attachments) {
-                    if (Objects.nonNull(attachment)) {
-                        mimeMessageHelper.addAttachment(Objects.requireNonNull(attachment.getOriginalFilename()), attachment);
-                    }
-                }
-            }
-            mailSender.send(message);
-            return String.format(successMessage, LocalDateTime.now());
-        } catch (MessagingException e) {
-            return e.getMessage();
-        }
+        }).toList();
     }
 
     public String buildMailBodyWithTemplate(String firstName, String templateName) {
